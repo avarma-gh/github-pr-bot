@@ -54,7 +54,7 @@ async function analyzeFiles(files) {
   // If no relevant code files, skip analysis
   if (jsFiles.length === 0) {
     console.log(
-      "🛑 No JavaScript/TypeScript files changed in this PR. Skipping analysis."
+      "No JavaScript/TypeScript files changed in this PR. Skipping analysis."
     );
     return null; // Or return empty array [] if your caller expects that
   }
@@ -64,11 +64,11 @@ async function analyzeFiles(files) {
     const totalLines = await getTotalLines(file);
 
     if (totalLines > 200) {
-      warnings.push(`⚠️ File "${file.filename}" exceeds 200 lines of code.`);
+      warnings.push(`File "${file.filename}" exceeds 200 lines of code.`);
     }
 
     if (file.patch && countFunctions(file.patch) > 8) {
-      warnings.push(`⚠️ File "${file.filename}" has more than 8 methods.`);
+      warnings.push(`File "${file.filename}" has more than 8 methods.`);
     }
   }
 
@@ -80,7 +80,7 @@ async function analyzeFiles(files) {
 
   if (packageJsonModified && !packageLockModified) {
     warnings.push(
-      `⚠️ 📦 "package.json" was modified but "package-lock.json" was not updated.`
+      `"package.json" was modified but "package-lock.json" was not updated.`
     );
   }
 
