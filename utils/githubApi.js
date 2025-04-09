@@ -1,7 +1,5 @@
 const axios = require("axios");
-
-// Load environment variables
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const { retryWithBackoff } = require("./retry");
 
 // Fetch all PR files with pagination
 async function fetchAllPRFiles(prFilesUrl) {
@@ -11,15 +9,17 @@ async function fetchAllPRFiles(prFilesUrl) {
 
   try {
     while (true) {
-      const response = await axios.get(prFilesUrl, {
-        headers: {
-          Authorization: `token ${GITHUB_TOKEN}`,
-          Accept: "application/vnd.github.v3+json",
-        },
-        params: {
-          page,
-          per_page: perPage,
-        },
+      const response = await retryWithBackoff(async () => {
+        return await axios.get(prFilesUrl, {
+          headers: {
+            Authorization: `token ${process.env.GITHUB_TOKEN}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+          params: {
+            page,
+            per_page: perPage,
+          },
+        });
       });
 
       const files = response.data;
@@ -42,16 +42,19 @@ async function postComment(prNumber, comment) {
   const REPO_NAME = process.env.REPO_NAME;
 
   const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/issues/${prNumber}/comments`;
-  await axios.post(
-    url,
-    { body: comment },
-    {
-      headers: {
-        Authorization: `token ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3+json",
-      },
-    }
-  );
+
+  await retryWithBackoff(async () => {
+    await axios.post(
+      url,
+      { body: comment },
+      {
+        headers: {
+          Authorization: `token ${process.env.GITHUB_TOKEN}`,
+          Accept: "application/vnd.github.v3+json",
+        },
+      }
+    );
+  });
 }
 
 module.exports = { fetchAllPRFiles, postComment };
