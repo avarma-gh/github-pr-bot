@@ -14,8 +14,6 @@ function verifySignature(rawBody, signature, secret) {
 
 // Webhook handler
 async function handleWebhook(req, res) {
-  console.log("Raw Body:", req.rawBody);
-
   const rawBody = req.rawBody;
   const payload = req.body;
   const signature = req.headers["x-hub-signature-256"];
