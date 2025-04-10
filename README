@@ -1,0 +1,179 @@
+# GitHub PR Review plugin
+
+The GitHub PR Review plugin is a Node.js application that automates Pull Request (PR) reviews by analyzing code changes and providing actionable feedback. It integrates with GitHub's webhook system to listen for PR events (`opened` and `synchronize`) and performs checks such as detecting excessive lines of code, TODO/FIXME comments, and ensuring `package.json` updates are accompanied by `package-lock.json` changes.
+
+---
+
+## Features
+
+- Code Quality Checks:
+  - Flags files with more than 200 lines of code.
+  - Detects files with more than 8 methods.
+  - Identifies TODO/FIXME comments in the code.
+- Package File Consistency:
+  - Ensures `package.json` updates are accompanied by `package-lock.json` changes.
+- Retry Mechanism:
+  - Handles API failures like rate-limiting or network errors with exponential backoff.
+- Modular Design:
+  - Organized into reusable modules for better maintainability and scalability.
+
+---
+
+## Prerequisites
+
+Before setting up the plugin, ensure you have the following:
+
+1. Node.js: Install Node.js (v14 or higher) from [https://nodejs.org](https://nodejs.org).
+2. GitHub Repository: A repository where the plugin will be integrated.
+3. GitHub Personal Access Token: Generate a token with `repo` and `write:discussion` scopes from your GitHub account settings.
+4. Ngrok (Optional): For testing locally, install ngrok from [https://ngrok.com](https://ngrok.com).
+
+---
+
+## Setup Instructions
+
+### Step 1: Clone the Repository
+
+Clone the plugin's source code from your repository:
+
+```bash
+git clone https://github.com/your-repo/github-pr-plugin.git
+cd github-pr-plugin
+```
+
+### Step 2: Install Dependencies
+
+Install the required dependencies using npm:
+
+```bash
+npm install
+```
+
+### Step 3: Configure Environment Variables
+
+Create a `.env` file in the root directory and add the following variables:
+
+```env
+GITHUB_TOKEN=your_github_personal_access_token
+REPO_OWNER=your_github_username_or_org
+REPO_NAME=your_repository_name
+WEBHOOK_SECRET=your_webhook_secret
+PORT=3000
+```
+
+- Replace `your_github_personal_access_token` with your GitHub token.
+- Replace `your_github_username_or_org` and `your_repository_name` with your repository details.
+- Set a secure value for `WEBHOOK_SECRET`.
+
+### Step 4: Start the Server
+
+Run the server locally:
+
+```bash
+node server.js
+```
+
+You should see output like:
+
+```
+Webhook server running on port 3000
+```
+
+### Step 5: Expose the Server (Optional for Local Testing)
+
+If testing locally, use ngrok to expose your server to the internet:
+
+```bash
+ngrok http 3000
+```
+
+Copy the ngrok URL (e.g., `https://abcd-1234.ngrok-free.app`) and use it as the webhook payload URL in GitHub by appending with
+`/webhook`-> `https://abcd-1234.ngrok-free.app/webhook`
+
+---
+
+## GitHub Webhook Configuration
+
+1. Go to your GitHub repository → Settings → Webhooks → Add Webhook.
+2. Set the Payload URL to your server's URL (e.g., `https://abcd-1234.ngrok-free.app/webhook`).
+3. Select Content type as `application/json`.
+4. Enter the same `WEBHOOK_SECRET` used in your `.env` file.
+5. Select Let me select individual events and check Pull requests.
+6. Save the webhook.
+
+### Test with Real PR Events
+
+1. Create a new branch in your repository:
+   ```bash
+   git checkout -b feature-branch
+   ```
+2. Make changes to your code (e.g., add TODO comments, modify `package.json`, etc.).
+3. Push the branch and open a PR:
+   ```bash
+   git push origin feature-branch
+   ```
+4. Observe the plugin's feedback on the PR.
+
+---
+
+## plugin Feedback Examples
+
+### Example 1: Code Quality Issues
+
+If a file exceeds 200 lines of code or has too many methods, the plugin will post a comment like:
+
+```
+Hi @username, here are some suggestions to improve your PR:
+
+File "src/components/Modal/TestModal.jsx" exceeds 200 lines of code.
+File "src/components/Modal/TestModal.jsx" has more than 8 methods.
+```
+
+### Example 2: TODO/FIXME Comments
+
+If TODO/FIXME comments are detected, the plugin will post a comment like:
+
+```
+Hi @username, here are some suggestions to improve your PR:
+
+Found TODO/FIXME comments:
+TODO: Add a modal component to the app
+FIXME: Fix the function names
+```
+
+### Example 3: Package File Inconsistency
+
+If `package.json` is modified but `package-lock.json` is not updated, the plugin will post a comment like:
+
+```
+Hi @username, here are some suggestions to improve your PR:
+
+"package.json" was modified but "package-lock.json" was not updated.
+```
+
+---
+
+## Troubleshooting
+
+### Issue: Invalid Signature
+
+- Cause: Mismatch between the computed signature and the one sent by GitHub.
+- Solution: Ensure the `WEBHOOK_SECRET` matches the one configured in GitHub and use the correct payload for signature computation.
+
+### Issue: Missing Feedback
+
+- Cause: The plugin may not detect issues due to incomplete analysis or API errors.
+- Solution: Check server logs for errors and verify that the plugin is fetching all files.
+
+### Issue: Rate-Limiting
+
+- Cause: The plugin exceeded GitHub's API rate limit.
+- Solution: Wait until the rate limit resets or increase the delay between retries.
+
+---
+
+## Future Enhancements
+
+- Customizable Rules: Allow users to define custom rules for analyzing PRs.
+- Persistent Storage: Store feedback and logs in a database for historical analysis.
+- Notifications: Send notifications to Slack or email when critical issues are detected.

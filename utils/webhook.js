@@ -54,7 +54,7 @@ async function handleWebhook(req, res) {
     // Detect TODO/FIXME comments
     const todos = files.flatMap((file) => detectTodos(file.patch));
     if (todos.length > 0) {
-      warnings.push(`⚠️ Found TODO/FIXME comments:\n${todos.join("\n")}`);
+      warnings.push(`Found TODO/FIXME comments:\n${todos.join("\n")}`);
     }
 
     // Post feedback as a PR comment
