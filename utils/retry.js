@@ -41,3 +41,5 @@ async function retryWithBackoff(fn, maxRetries = 3, initialDelay = 1000) {
     }
   }
 }
+
+module.exports = { retryWithBackoff };
