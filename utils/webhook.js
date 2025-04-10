@@ -24,7 +24,6 @@ async function handleWebhook(req, res) {
     console.error("Missing x-hub-signature-256 header");
     return res.status(400).send("Missing signature header");
   }
-
   // Verify webhook signature
   if (!verifySignature(rawBody, signature, process.env.WEBHOOK_SECRET)) {
     console.error("Invalid signature");
@@ -39,30 +38,31 @@ async function handleWebhook(req, res) {
     }
 
     const pr = payload.pull_request;
-    const prNumber = pr.number || "Unknown"; // Fallback for missing PR number
-    const prUrl = pr.url || ""; // Fallback for missing PR URL
-    const senderLogin = payload.sender?.login || "Unknown User"; // Fallback for missing sender login
+    const prNumber = pr.number || "Unknown";
+    const prUrl = pr.url || "";
+    const senderLogin = payload.sender?.login || "Unknown User";
 
-    // Fetch PR files with pagination
-    const files = await fetchAllPRFiles(prUrl + "/files");
+    const files = await fetchAllPRFiles(`${prUrl}/files`);
 
-    // Analyze files
-    const warnings = await analyzeFiles(files);
+    // Extract repo name and SHAs for full analysis
+    const repoFullName = payload.repository.full_name;
+    const baseSha = pr.base.sha;
+    const headSha = pr.head.sha;
 
-    // Detect TODO/FIXME comments
+    const warnings = await analyzeFiles(files, repoFullName, baseSha, headSha);
+
     const todos = files.flatMap((file) => detectTodos(file.patch));
     if (todos.length > 0) {
-      warnings.push(`Found TODO/FIXME comments:\n${todos.join("\n")}`);
+      warnings.push(`📝 Found TODO/FIXME comments:\n${todos.join("\n")}`);
     }
 
-    // Post feedback as a PR comment
     if (warnings && warnings.length > 0) {
       const comment = `Hi @${senderLogin}, here are some suggestions to improve your PR:\n\n${warnings.join(
         "\n"
       )}`;
       await postComment(prNumber, comment);
     } else {
-      await postComment(prNumber, "✅ Great job! Your PR looks good.");
+      await postComment(prNumber, "Great job! Your PR looks good.");
     }
 
     res.status(200).send("Feedback posted");

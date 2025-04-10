@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-// Helper function to fetch file content and calculate total lines
+// Fetch total number of lines in a file
 async function getTotalLines(file) {
   try {
     const response = await axios.get(file.raw_url, {
@@ -8,83 +8,143 @@ async function getTotalLines(file) {
         Authorization: `token ${process.env.GITHUB_TOKEN}`,
       },
     });
-    const content = response.data;
-    return content.split("\n").length; // Total lines in the file
+    return response.data.split("\n").length;
   } catch (error) {
     console.error(
       `Error fetching file content for ${file.filename}:`,
       error.message
     );
-    return 0; // Default to 0 if content cannot be fetched
+    return 0;
   }
 }
 
-// Helper function to count functions (traditional + arrow)
+// Count traditional and arrow functions in patch
 function countFunctions(patch) {
   const traditional = patch.match(/function\s+\w+\s*\(/g) || [];
   const arrow = patch.match(/(const|let|var)\s+\w+\s*=\s*\(.*?\)\s*=>/g) || [];
   return traditional.length + arrow.length;
 }
 
-// Detect TODO/FIXME comments
+// Detect TODO and FIXME comments in patch
 function detectTodos(patch) {
   const todos = [];
   if (patch) {
-    const todoMatches = patch.match(/(TODO|FIXME):?\s*(.*)/gi);
-    if (todoMatches) {
-      todos.push(...todoMatches);
-    }
+    const matches = patch.match(/(TODO|FIXME):?\s*(.*)/gi);
+    if (matches) todos.push(...matches);
   }
   return todos;
 }
 
-// Analyze PR files
-async function analyzeFiles(files) {
-  const warnings = [];
+// Fetch JSON file from GitHub for a given repo, SHA, and path
+async function fetchFileContentFromGitHub(repo, sha, path) {
+  try {
+    const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${sha}`;
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3.raw",
+      },
+    });
+    // No need to parse, GitHub returns actual JSON
+    return response.data;
+  } catch (error) {
+    console.error(`Failed to fetch ${path} at ${sha}:`, error.message);
+    return null;
+  }
+}
 
-  // Filter JS/TS files
-  const jsFiles = files.filter(
-    (file) =>
-      file.filename.endsWith(".js") ||
-      file.filename.endsWith(".jsx") ||
-      file.filename.endsWith(".ts") ||
-      file.filename.endsWith(".tsx")
-  );
+// Compare dependency changes between two package.json files
+function compareDependencies(before = {}, after = {}) {
+  const changes = [];
+  const allPackages = new Set([...Object.keys(before), ...Object.keys(after)]);
 
-  // If no relevant code files, skip analysis
-  if (jsFiles.length === 0) {
-    console.log(
-      "No JavaScript/TypeScript files changed in this PR. Skipping analysis."
-    );
-    return null; // Or return empty array [] if your caller expects that
+  for (const pkg of allPackages) {
+    const beforeVer = before[pkg];
+    const afterVer = after[pkg];
+
+    if (!beforeVer && afterVer) {
+      changes.push(`Added: ${pkg}@${afterVer}`);
+    } else if (beforeVer && !afterVer) {
+      changes.push(`Removed: ${pkg}@${beforeVer}`);
+    } else if (beforeVer !== afterVer) {
+      changes.push(`Changed: ${pkg} from ${beforeVer} → ${afterVer}`);
+    }
   }
 
-  // Check LOC and NOM for JS/TS files only
+  return changes;
+}
+
+// Analyze files changed in PR
+async function analyzeFiles(files, repoFullName, baseSha, headSha) {
+  const warnings = [];
+
+  // Filter for JS/TS files only
+  const jsFiles = files.filter((file) =>
+    [".js", ".jsx", ".ts", ".tsx"].some((ext) => file.filename.endsWith(ext))
+  );
+
+  if (jsFiles.length === 0) {
+    console.log("No JS/TS files found. Skipping analysis.");
+    return null;
+  }
+
+  // JS/TS file analysis
   for (const file of jsFiles) {
     const totalLines = await getTotalLines(file);
 
     if (totalLines > 200) {
-      warnings.push(`File "${file.filename}" exceeds 200 lines of code.`);
+      warnings.push(`File \`${file.filename}\` exceeds 200 lines.`);
     }
 
     if (file.patch && countFunctions(file.patch) > 8) {
-      warnings.push(`File "${file.filename}" has more than 8 methods.`);
+      warnings.push(`File \`${file.filename}\` has more than 8 functions.`);
     }
   }
 
-  // Check package.json vs package-lock.json (always check this regardless of language)
-  const packageJsonModified = files.some((f) => f.filename === "package.json");
-  const packageLockModified = files.some(
+  // Check for package.json changes without package-lock.json
+  const packageJsonChanged = files.some((f) => f.filename === "package.json");
+  const packageLockChanged = files.some(
     (f) => f.filename === "package-lock.json"
   );
 
-  if (packageJsonModified && !packageLockModified) {
+  if (packageJsonChanged && !packageLockChanged) {
     warnings.push(
-      `"package.json" was modified but "package-lock.json" was not updated.`
+      `\`package.json\` was changed, but \`package-lock.json\` was not updated.`
     );
+
+    const basePkg = await fetchFileContentFromGitHub(
+      repoFullName,
+      baseSha,
+      "package.json"
+    );
+    const headPkg = await fetchFileContentFromGitHub(
+      repoFullName,
+      headSha,
+      "package.json"
+    );
+
+    if (basePkg && headPkg) {
+      const depChanges = compareDependencies(
+        basePkg.dependencies,
+        headPkg.dependencies
+      );
+      const devDepChanges = compareDependencies(
+        basePkg.devDependencies,
+        headPkg.devDependencies
+      );
+
+      const allChanges = [...depChanges, ...devDepChanges];
+      if (allChanges.length > 0) {
+        warnings.push("Dependency changes detected:");
+        warnings.push(...allChanges);
+      }
+    }
   }
 
   return warnings;
 }
 
-module.exports = { analyzeFiles, detectTodos };
+module.exports = {
+  analyzeFiles,
+  detectTodos,
+};
