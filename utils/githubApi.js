@@ -5,7 +5,7 @@ const { retryWithBackoff } = require("./retry");
 async function fetchAllPRFiles(prFilesUrl) {
   const allFiles = [];
   let page = 1;
-  const perPage = 100; // GitHub API supports up to 100 items per page
+  const perPage = 100; // Github supports up to 100 items per page
 
   try {
     while (true) {
@@ -57,7 +57,7 @@ async function postComment(prNumber, comment) {
   });
 }
 
-// Fetch JSON file from GitHub for a given repo, SHA, and path
+// Fetch JSON file from Github for a given repo, SHA, and path
 async function fetchFileContentFromGitHub(repo, sha, path) {
   try {
     const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${sha}`;
@@ -67,7 +67,7 @@ async function fetchFileContentFromGitHub(repo, sha, path) {
         Accept: "application/vnd.github.v3.raw",
       },
     });
-    // No need to parse, GitHub returns actual JSON
+    // No need to parse, Github returns actual JSON
     return response.data;
   } catch (error) {
     console.error(`Failed to fetch ${path} at ${sha}:`, error.message);

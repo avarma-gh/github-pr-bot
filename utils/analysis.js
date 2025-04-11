@@ -1,6 +1,6 @@
 const axios = require("axios");
 const { fetchFileContentFromGitHub } = require("./githubApi");
-const { compareDependencies } = require("./dependencies");
+const { compareDependencies } = require("./compareDependencies");
 
 // Fetch total number of lines in a file
 async function getTotalLines(file) {
