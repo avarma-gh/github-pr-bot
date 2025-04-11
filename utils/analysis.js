@@ -1,4 +1,6 @@
 const axios = require("axios");
+const { fetchFileContentFromGitHub } = require("./githubApi");
+const { compareDependencies } = require("./dependencies");
 
 // Fetch total number of lines in a file
 async function getTotalLines(file) {
@@ -33,45 +35,6 @@ function detectTodos(patch) {
     if (matches) todos.push(...matches);
   }
   return todos;
-}
-
-// Fetch JSON file from GitHub for a given repo, SHA, and path
-async function fetchFileContentFromGitHub(repo, sha, path) {
-  try {
-    const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${sha}`;
-    const response = await axios.get(url, {
-      headers: {
-        Authorization: `token ${process.env.GITHUB_TOKEN}`,
-        Accept: "application/vnd.github.v3.raw",
-      },
-    });
-    // No need to parse, GitHub returns actual JSON
-    return response.data;
-  } catch (error) {
-    console.error(`Failed to fetch ${path} at ${sha}:`, error.message);
-    return null;
-  }
-}
-
-// Compare dependency changes between two package.json files
-function compareDependencies(before = {}, after = {}) {
-  const changes = [];
-  const allPackages = new Set([...Object.keys(before), ...Object.keys(after)]);
-
-  for (const pkg of allPackages) {
-    const beforeVer = before[pkg];
-    const afterVer = after[pkg];
-
-    if (!beforeVer && afterVer) {
-      changes.push(`Added: ${pkg}@${afterVer}`);
-    } else if (beforeVer && !afterVer) {
-      changes.push(`Removed: ${pkg}@${beforeVer}`);
-    } else if (beforeVer !== afterVer) {
-      changes.push(`Changed: ${pkg} from ${beforeVer} → ${afterVer}`);
-    }
-  }
-
-  return changes;
 }
 
 // Analyze files changed in PR

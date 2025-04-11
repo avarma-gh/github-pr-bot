@@ -57,4 +57,22 @@ async function postComment(prNumber, comment) {
   });
 }
 
-module.exports = { fetchAllPRFiles, postComment };
+// Fetch JSON file from GitHub for a given repo, SHA, and path
+async function fetchFileContentFromGitHub(repo, sha, path) {
+  try {
+    const url = `https://api.github.com/repos/${repo}/contents/${path}?ref=${sha}`;
+    const response = await axios.get(url, {
+      headers: {
+        Authorization: `token ${process.env.GITHUB_TOKEN}`,
+        Accept: "application/vnd.github.v3.raw",
+      },
+    });
+    // No need to parse, GitHub returns actual JSON
+    return response.data;
+  } catch (error) {
+    console.error(`Failed to fetch ${path} at ${sha}:`, error.message);
+    return null;
+  }
+}
+
+module.exports = { fetchAllPRFiles, postComment, fetchFileContentFromGitHub };
