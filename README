@@ -90,6 +90,9 @@ ngrok http 3000
 Copy the ngrok URL (e.g., `https://abcd-1234.ngrok-free.app`) and use it as the webhook payload URL in GitHub by appending with
 `/webhook`-> `https://abcd-1234.ngrok-free.app/webhook`
 
+Important: Every time ngrok restarts, it generates a new URL.
+You must update the Payload URL in your GitHub webhook settings with the new URL each time.
+
 ---
 
 ## GitHub Webhook Configuration
