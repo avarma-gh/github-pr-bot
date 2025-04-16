@@ -24,10 +24,24 @@ async function handleWebhook(req, res) {
     console.error("Missing x-hub-signature-256 header");
     return res.status(400).send("Missing signature header");
   }
+
   // Verify webhook signature
   if (!verifySignature(rawBody, signature, process.env.WEBHOOK_SECRET)) {
     console.error("Invalid signature");
     return res.status(401).send("Invalid signature");
+  }
+
+  // Only handle pull_request events
+  if (event !== "pull_request") {
+    return res.status(200).send("Event not supported");
+  }
+
+  // Handle only relevant actions
+  const action = payload.action;
+  if (action !== "opened" && action !== "synchronize") {
+    return res
+      .status(200)
+      .send(`PR action "${action}" not relevant, skipping.`);
   }
 
   try {
